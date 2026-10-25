@@ -65,11 +65,11 @@ namespace LucillesJourney.EditorTools
     /// </summary>
     public static class WorldLayoutBuilder
     {
-        // The 2D renderer ignores the camera's custom sort axis, so draw order is explicit. Props are ordered by their
-        // baseline (lower on screen = in front) inside [-YOrderRange, 0]; Lucille is always above all of them, and only
-        // the sky-level effects (smoke, butterflies) and the objective markers are above her.
-        public const int GroundOrder = -30000, FloorOrder = -20000, PlayerOrder = 10000, AboveOrder = 20000, MarkerOrder = 25000;
-        private const int OrderPerPixel = 4, YOrderRange = 15000;
+        // The 2D renderer ignores the camera's custom sort axis, so draw order is explicit (see WorldDepthSort):
+        // props are ordered by their base, Lucille re-sorts against them as she moves, and only the sky-level effects
+        // (smoke, butterflies) and the objective markers are always above her.
+        private const int GroundOrder = WorldDepthSort.GroundOrder, FloorOrder = WorldDepthSort.FloorOrder,
+            AboveOrder = WorldDepthSort.AboveOrder, MarkerOrder = WorldDepthSort.MarkerOrder;
 
         public static string LayoutPath(ChapterId chapter) => $"Assets/Resources/World/ch{(int)chapter + 1}_layout.json";
 
@@ -86,7 +86,7 @@ namespace LucillesJourney.EditorTools
             {
                 case "floor": return FloorOrder;
                 case "above": return AboveOrder;
-                default: return -Mathf.Clamp(Mathf.RoundToInt(baselineYPx * OrderPerPixel), 0, YOrderRange);
+                default: return WorldDepthSort.OrderForBaseline(baselineYPx);
             }
         }
 
@@ -193,7 +193,7 @@ namespace LucillesJourney.EditorTools
 
             var renderer = go.GetComponent<SpriteRenderer>();
             renderer.sprite = LoadSprite("lucille_down_idle") ?? PlaceholderArtBuilder.PlayerBlob;
-            renderer.sortingOrder = PlayerOrder;
+            renderer.sortingOrder = WorldDepthSort.OrderForPlayer(layout.playerStart.y);
 
             var body = go.GetComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Dynamic;
@@ -208,6 +208,7 @@ namespace LucillesJourney.EditorTools
 
             go.AddComponent<PlayerController2D>();
             go.AddComponent<PlayerSpriteAnimator>();
+            go.AddComponent<DepthSortedCharacter>().Configure(ppu);
             var detector = go.AddComponent<InteractionDetector>();
             detector.Configure(LayerMask.GetMask("Interactable"), LayerMask.GetMask("Walls"), 1.5f);
             return go;

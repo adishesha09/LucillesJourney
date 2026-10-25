@@ -427,16 +427,35 @@ namespace LucillesJourney.EditorTools
             yield return Shot("w_garden_watered");
             Check(!FindInteractable("ch1_garden").CanInteract, "completed interactable cannot repeat");
 
-            // Draw order: Lucille is above every ground-level prop (and therefore every piece of furniture), and the
-            // seated children are in front of their chairs.
+            // Draw order: Lucille depth-sorts against props by her feet. Standing below an object's base she is in front
+            // of it; standing behind it (above its base) she is hidden by its canopy / top, so she never walks "over" trees
+            // or furniture. Seated children are in front of their chairs.
             {
-                var playerOrder = Player.GetComponent<SpriteRenderer>().sortingOrder;
                 var propRenderers = GameObject.Find("Props").GetComponentsInChildren<SpriteRenderer>(true);
-                var groundProps = propRenderers.Where(r => r.sortingOrder < playerOrder).ToList();
-                Check(propRenderers.All(r => r.sortingOrder < playerOrder || r.name.StartsWith("smoke") || r.name.StartsWith("butterfly")),
-                    "only smoke and butterflies are drawn above the player");
-                Check(groundProps.Count > 100, "ground-level props are all drawn below the player");
                 SpriteRenderer Prop(string n) => propRenderers.First(r => r.name == n);
+                var playerRenderer = Player.GetComponent<SpriteRenderer>();
+                var playerBody = Player.GetComponent<Rigidbody2D>();
+
+                IEnumerator PlaceAt(Vector2 world)
+                {
+                    playerBody.position = world;
+                    Player.transform.position = world;
+                    yield return 3;
+                }
+
+                foreach (var treeName in new[] { "tree_broad_75", "tree_fruit_77", "tree_cypress_80", "table_empty_17", "table_full_16", "bookcase_25" })
+                {
+                    var tree = propRenderers.FirstOrDefault(r => r.name == treeName);
+                    if (tree == null) continue;
+                    var basePos = (Vector2)tree.transform.position;
+                    yield return PlaceAt(basePos + new Vector2(0f, -0.5f));
+                    Check(playerRenderer.sortingOrder > tree.sortingOrder, $"Lucille standing in front of {treeName} is drawn over it");
+                    yield return PlaceAt(basePos + new Vector2(0f, 0.5f));
+                    Check(playerRenderer.sortingOrder < tree.sortingOrder, $"Lucille standing behind {treeName} is hidden by it");
+                }
+
+                Check(propRenderers.Where(r => r.name.StartsWith("smoke") || r.name.StartsWith("butterfly")).All(r => r.sortingOrder > playerRenderer.sortingOrder),
+                    "smoke and butterflies stay above the player");
                 Check(Prop("child_a_dining").sortingOrder > Prop("chair_left_18").sortingOrder, "seated girl is drawn in front of her chair");
                 Check(Prop("child_b_dining").sortingOrder > Prop("chair_right_19").sortingOrder, "seated boy is drawn in front of his chair");
                 Check(propRenderers.Where(r => r.name.StartsWith("table_full") || r.name.StartsWith("table_empty"))
