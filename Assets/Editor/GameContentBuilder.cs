@@ -92,6 +92,8 @@ namespace LucillesJourney.EditorTools
         [MenuItem("Lucille's Journey/Build All")]
         public static void BuildAll()
         {
+            AssetDatabase.Refresh(); // import freshly generated art/layout files (and apply their importers) before scenes reference them
+
             Debug.Log("Lucille's Journey: building placeholder art...");
             PlaceholderArtBuilder.EnsureAll();
 

@@ -77,15 +77,20 @@ namespace LucillesJourney.EditorTools
                 return;
             }
 
-            SceneBuildUtility.CreateCamera(SkyColor, 7.5f);
+            var camera = SceneBuildUtility.CreateCamera(SkyColor, 7.5f);
             SceneBuildUtility.CreateGlobalLight();
             SceneBuildUtility.CreateEventSystem();
 
-            BuildEnvironment();
-            var player = BuildPlayer();
+            // Chapters with a generated overworld layout get the full world; the rest keep the original placeholder room.
+            var player = WorldLayoutBuilder.Build(chapterId, camera, placements);
+            if (player == null)
+            {
+                BuildEnvironment();
+                player = BuildPlayer();
 
-            foreach (var p in placements) BuildInteractable(p);
-            BuildProps(chapterId);
+                foreach (var p in placements) BuildInteractable(p);
+                BuildProps(chapterId);
+            }
             if (choice.HasValue) BuildChoiceInteractable(choice.Value);
 
             var canvasRoot = SceneBuildUtility.CreateCanvas("HUDCanvas").gameObject;

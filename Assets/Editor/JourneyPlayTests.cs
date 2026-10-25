@@ -15,6 +15,7 @@ using LucillesJourney.Gamification;
 using LucillesJourney.Gamification.UI;
 using LucillesJourney.Interaction;
 using LucillesJourney.Narrative;
+using LucillesJourney.World;
 
 namespace LucillesJourney.EditorTools
 {
@@ -154,6 +155,72 @@ namespace LucillesJourney.EditorTools
             yield return 8;
             double settle = EditorApplication.timeSinceStartup;
             while (EditorApplication.timeSinceStartup - settle < 1.0) yield return 1; // let the fade-in and Start() calls finish
+        }
+
+        private static IEnumerator TeleportTo(string interactionId)
+        {
+            var target = FindInteractable(interactionId);
+            if (target == null) { Check(false, $"interactable '{interactionId}' exists for teleport"); yield break; }
+            TeleportPlayer(target.transform.position);
+            yield return WaitSeconds(1.0f);
+        }
+
+        private static void TeleportPlayer(Vector2 position)
+        {
+            var player = GameObject.Find("Player");
+            if (player == null) return;
+            var body = player.GetComponent<Rigidbody2D>();
+            body.position = position;
+            player.transform.position = position;
+            body.linearVelocity = Vector2.zero;
+            Physics2D.SyncTransforms();
+            Camera.main?.GetComponent<LucillesJourney.World.CameraFollow2D>()?.Snap();
+        }
+
+        private static IEnumerator Chapter1WorldChecks()
+        {
+            LucillesJourney.World.CameraFollow2D.OverrideScreenHeight = 1080;
+            var player = GameObject.Find("Player");
+            Check(player != null, "overworld: player exists");
+            if (player == null) yield break;
+            var start = player.transform.position;
+
+            var cam = Camera.main;
+            var follow = cam != null ? cam.GetComponent<LucillesJourney.World.CameraFollow2D>() : null;
+            Check(follow != null, "overworld: camera follows the player");
+            yield return 6;
+            Check(cam != null && Mathf.Abs(cam.orthographicSize - 6.75f) < 0.01f, $"overworld: whole-number pixel zoom at 1080p (ortho {(cam != null ? cam.orthographicSize : 0):0.00})");
+            var sprite = player.GetComponent<SpriteRenderer>().sprite;
+            Check(sprite != null && sprite.name.StartsWith("lucille_"), $"overworld: Lucille's sprite is used ({(sprite != null ? sprite.name : "none")})");
+
+            var walls = LayerMask.GetMask("Walls");
+            Check(Physics2D.OverlapCircle(player.transform.position, 0.3f, walls) == null, "overworld: the start position is on open ground");
+
+            var detector = player.GetComponent<InteractionDetector>();
+            foreach (var id in new[] { "ch1_garden", "ch1_breakfast", "ch1_photo", "ch1_shelf", "ch1_ks_wateringcan" })
+            {
+                var target = FindInteractable(id);
+                Check(target != null, $"overworld: interaction spot '{id}' exists");
+                if (target == null) continue;
+                TeleportPlayer(target.transform.position);
+                yield return 5;
+                Check(detector.Current != null && detector.Current.InteractionId == id, $"overworld: standing at '{id}' focuses it (nothing blocks the line)");
+            }
+
+            TeleportPlayer(start);
+            yield return WaitSeconds(0.9f);
+            yield return Shot("w_start");
+            foreach (var id in new[] { "ch1_shelf", "ch1_breakfast", "ch1_photo", "ch1_ks_wateringcan" })
+            {
+                var target = FindInteractable(id);
+                if (target == null) continue;
+                TeleportPlayer(target.transform.position);
+                yield return WaitSeconds(0.9f);
+                yield return Shot("w_" + id);
+            }
+
+            TeleportPlayer(start);
+            yield return WaitSeconds(0.9f);
         }
 
         private static IEnumerator WaitSeconds(float seconds)
@@ -312,6 +379,9 @@ namespace LucillesJourney.EditorTools
             yield return StartCoroutine_ReadIntro();
             yield return Shot("01_hud_chapter1");
 
+            // The overworld: world art, follow camera, animated player, and every interaction spot reachable
+            yield return Chapter1WorldChecks();
+
             // Audio: chapter music + ambience start, follow the scene, and respond to settings
             yield return WaitSeconds(2.5f);
             var audio = LucillesJourney.Sound.AudioManager.Instance;
@@ -338,16 +408,22 @@ namespace LucillesJourney.EditorTools
             Check(gm.IsKeepsakeCollected("ch1_ks_wateringcan"), "keepsake collected");
             Check(gm.IsAchievementUnlocked("first_keepsake"), "Something to Hold achievement unlocked");
 
-            // Visible environmental consequence
-            var gardenSprite = FindInteractable("ch1_garden").GetComponent<SpriteRenderer>();
-            string before = gardenSprite.sprite != null ? gardenSprite.sprite.name : "";
+            // Visible environmental consequence: dry beds are replaced by watered beds (props gated by the saved state flag)
+            var gates = UnityEngine.Object.FindObjectsByType<EnvironmentStateGate>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Where(g => g.StateKey == "ch1_garden_watered").ToList();
+            bool WaterStateShown(bool whenSet) => gates.Where(g => g.VisibleWhenSet == whenSet).All(g => g.GetComponent<Renderer>().enabled);
+            bool WaterStateHidden(bool whenSet) => gates.Where(g => g.VisibleWhenSet == whenSet).All(g => !g.GetComponent<Renderer>().enabled);
+            Check(gates.Count(g => g.VisibleWhenSet) >= 2 && gates.Count(g => !g.VisibleWhenSet) >= 2, "garden has dry and watered versions of its beds");
+            Check(WaterStateShown(false) && WaterStateHidden(true), "before watering: dry beds shown, watered beds hidden");
+            yield return TeleportTo("ch1_garden");
+            yield return Shot("w_garden_dry");
             Interact("ch1_garden");
             yield return ReadNarrative();
             yield return 30;
             Check(gm.IsObjectiveComplete("ch1_garden"), "ch1_garden completed");
             Check(gm.IsEnvironmentState("ch1_garden_watered"), "garden watered state persisted");
-            Check(gardenSprite.sprite != null && gardenSprite.sprite.name != before && gardenSprite.sprite.name.Contains("watered"),
-                "garden visibly changed to the watered sprite");
+            Check(WaterStateShown(true) && WaterStateHidden(false), "garden visibly changed: watered beds shown, dry beds hidden");
+            yield return Shot("w_garden_watered");
             Check(!FindInteractable("ch1_garden").CanInteract, "completed interactable cannot repeat");
 
             // Duplicate completion is prevented
@@ -374,6 +450,10 @@ namespace LucillesJourney.EditorTools
             Check(gm.IsChapterCompleted(ChapterId.OrdinaryLife), "chapter completed once required objectives are done");
             Check(gm.IsAchievementUnlocked("everyday_rituals"), "Everyday Rituals unlocked (garden + breakfast)");
             Check(ui.CurrentScreen is ChapterSummaryScreen, "chapter summary shown after the outro");
+            var tableGates = UnityEngine.Object.FindObjectsByType<EnvironmentStateGate>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Where(g => g.StateKey == "ch1_breakfast_shared").ToList();
+            Check(tableGates.Count >= 2 && tableGates.Where(g => g.VisibleWhenSet).All(g => g.GetComponent<Renderer>().enabled)
+                  && tableGates.Where(g => !g.VisibleWhenSet).All(g => !g.GetComponent<Renderer>().enabled), "the breakfast table changes from laid to cleared once breakfast is shared");
             Check(gm.HighestUnlockedChapterIndex >= 1, "next chapter unlocked");
             yield return Shot("04_chapter_summary");
 
