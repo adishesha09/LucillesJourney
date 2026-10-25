@@ -427,6 +427,24 @@ namespace LucillesJourney.EditorTools
             yield return Shot("w_garden_watered");
             Check(!FindInteractable("ch1_garden").CanInteract, "completed interactable cannot repeat");
 
+            // Draw order: Lucille is above every ground-level prop (and therefore every piece of furniture), and the
+            // seated children are in front of their chairs.
+            {
+                var playerOrder = Player.GetComponent<SpriteRenderer>().sortingOrder;
+                var propRenderers = GameObject.Find("Props").GetComponentsInChildren<SpriteRenderer>(true);
+                var groundProps = propRenderers.Where(r => r.sortingOrder < playerOrder).ToList();
+                Check(propRenderers.All(r => r.sortingOrder < playerOrder || r.name.StartsWith("smoke") || r.name.StartsWith("butterfly")),
+                    "only smoke and butterflies are drawn above the player");
+                Check(groundProps.Count > 100, "ground-level props are all drawn below the player");
+                SpriteRenderer Prop(string n) => propRenderers.First(r => r.name == n);
+                Check(Prop("child_a_dining").sortingOrder > Prop("chair_left_18").sortingOrder, "seated girl is drawn in front of her chair");
+                Check(Prop("child_b_dining").sortingOrder > Prop("chair_right_19").sortingOrder, "seated boy is drawn in front of his chair");
+                Check(propRenderers.Where(r => r.name.StartsWith("table_full") || r.name.StartsWith("table_empty"))
+                      .All(t => t.sortingOrder != Prop("child_a_dining").sortingOrder), "children never tie with the table for draw order");
+            }
+            yield return TeleportTo("ch1_breakfast");
+            yield return Shot("w_dining_sorting");
+
             // Duplicate completion is prevented
             int completedBefore = gm.IsObjectiveComplete("ch1_garden") ? 1 : 0;
             Check(!gm.CompleteObjective("ch1_garden"), "duplicate objective completion returns false");

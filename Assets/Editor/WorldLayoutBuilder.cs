@@ -65,7 +65,11 @@ namespace LucillesJourney.EditorTools
     /// </summary>
     public static class WorldLayoutBuilder
     {
-        private const int FloorOrder = -50, GroundOrder = -100, AboveOrder = 30, MarkerOrder = 40;
+        // The 2D renderer ignores the camera's custom sort axis, so draw order is explicit. Props are ordered by their
+        // baseline (lower on screen = in front) inside [-YOrderRange, 0]; Lucille is always above all of them, and only
+        // the sky-level effects (smoke, butterflies) and the objective markers are above her.
+        public const int GroundOrder = -30000, FloorOrder = -20000, PlayerOrder = 10000, AboveOrder = 20000, MarkerOrder = 25000;
+        private const int OrderPerPixel = 4, YOrderRange = 15000;
 
         public static string LayoutPath(ChapterId chapter) => $"Assets/Resources/World/ch{(int)chapter + 1}_layout.json";
 
@@ -76,13 +80,13 @@ namespace LucillesJourney.EditorTools
 
         private static Vector3 ToWorld(float xPx, float yPx, int ppu) => new Vector3(xPx / ppu, yPx / ppu, 0f);
 
-        private static int OrderFor(string sort)
+        public static int OrderFor(string sort, float baselineYPx)
         {
             switch (sort)
             {
                 case "floor": return FloorOrder;
                 case "above": return AboveOrder;
-                default: return 0;
+                default: return -Mathf.Clamp(Mathf.RoundToInt(baselineYPx * OrderPerPixel), 0, YOrderRange);
             }
         }
 
@@ -172,7 +176,7 @@ namespace LucillesJourney.EditorTools
             go.transform.position = ToWorld(x, y, ppu);
             var renderer = go.GetComponent<SpriteRenderer>();
             renderer.sprite = sprites[0];
-            renderer.sortingOrder = OrderFor(sort);
+            renderer.sortingOrder = OrderFor(sort, y);
 
             if (sprites.Length > 1)
             {
@@ -189,7 +193,7 @@ namespace LucillesJourney.EditorTools
 
             var renderer = go.GetComponent<SpriteRenderer>();
             renderer.sprite = LoadSprite("lucille_down_idle") ?? PlaceholderArtBuilder.PlayerBlob;
-            renderer.sortingOrder = 0;
+            renderer.sortingOrder = PlayerOrder;
 
             var body = go.GetComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Dynamic;

@@ -156,7 +156,7 @@ namespace LucillesJourney.EditorTools
             var renderer = go.GetComponent<SpriteRenderer>();
             renderer.sprite = PlaceholderArtBuilder.PlayerBlob;
             renderer.color = PlayerColor;
-            renderer.sortingOrder = 0;
+            renderer.sortingOrder = 10;
 
             var body = go.GetComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Dynamic;
