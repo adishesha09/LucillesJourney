@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d424ff2cf5556be4a82dd2d3bc4ea4ea, type: 3}
+  m_Name: Chapter_Displacement
+  m_EditorClassIdentifier: Assembly-CSharp::LucillesJourney.Core.ChapterDataSO
+  chapterId: 3
+  displayName: 'Chapter 4: Displacement'
+  sceneName: Chapter4_Displacement
+  introNarrative: {fileID: 11400000, guid: 8f9ebc988f0a3ca4c80fa41af9826a01, type: 2}
+  outroNarrative: {fileID: 11400000, guid: 2148fed00f63f4b4d99ab8d50b5ab88d, type: 2}
+  objectives:
+  - objectiveId: ch4_pack
+    description: Pack only what can be carried
+    isMemoryFragment: 0
+    isOptional: 0
+  - objectiveId: ch4_depart
+    description: Begin the journey away from danger
+    isMemoryFragment: 0
+    isOptional: 0
+  - objectiveId: ch4_farewell
+    description: Say goodbye to home
+    isMemoryFragment: 1
+    isOptional: 1
+  - objectiveId: ch4_shelf
+    description: Look at the empty shelf
+    isMemoryFragment: 1
+    isOptional: 1
+  - objectiveId: ch4_ks_clothbag
+    description: Look at the small cloth bag
+    isMemoryFragment: 0
+    isOptional: 1
+  isFinalChapter: 0
+  nextSceneName: Chapter5_Survival

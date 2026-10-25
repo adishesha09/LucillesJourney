@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d424ff2cf5556be4a82dd2d3bc4ea4ea, type: 3}
+  m_Name: Chapter_OrdinaryLife
+  m_EditorClassIdentifier: Assembly-CSharp::LucillesJourney.Core.ChapterDataSO
+  chapterId: 0
+  displayName: 'Chapter 1: Ordinary Life'
+  sceneName: Chapter1_OrdinaryLife
+  introNarrative: {fileID: 11400000, guid: 88f79b6a83f49ad4b98e079a6034f3d0, type: 2}
+  outroNarrative: {fileID: 11400000, guid: f341c304e567b3044ab8e4e273663d6c, type: 2}
+  objectives:
+  - objectiveId: ch1_garden
+    description: Water the garden
+    isMemoryFragment: 0
+    isOptional: 0
+  - objectiveId: ch1_breakfast
+    description: Share breakfast with the children
+    isMemoryFragment: 0
+    isOptional: 0
+  - objectiveId: ch1_photo
+    description: Look at the family photograph
+    isMemoryFragment: 1
+    isOptional: 1
+  - objectiveId: ch1_shelf
+    description: Look over the kitchen shelf
+    isMemoryFragment: 1
+    isOptional: 1
+  - objectiveId: ch1_ks_wateringcan
+    description: Pick up the watering can
+    isMemoryFragment: 0
+    isOptional: 1
+  isFinalChapter: 0
+  nextSceneName: Chapter2_TheMarket

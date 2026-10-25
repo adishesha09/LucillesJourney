@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e11eb966926430645a74f277282b07be, type: 3}
+  m_Name: Ch2_Greet
+  m_EditorClassIdentifier: Assembly-CSharp::LucillesJourney.Narrative.NarrativeSequenceSO
+  sequenceName: Ch2_Greet
+  lines:
+  - speakerName: Neighbour
+    text: Morning! The children keeping you busy?
+  - speakerName: Lucille
+    text: Always. Wouldn't trade it, though.

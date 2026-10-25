@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d424ff2cf5556be4a82dd2d3bc4ea4ea, type: 3}
+  m_Name: Chapter_TheMarket
+  m_EditorClassIdentifier: Assembly-CSharp::LucillesJourney.Core.ChapterDataSO
+  chapterId: 1
+  displayName: 'Chapter 2: The Market'
+  sceneName: Chapter2_TheMarket
+  introNarrative: {fileID: 11400000, guid: 4689ceea474e01a4b93ec0758b81947c, type: 2}
+  outroNarrative: {fileID: 11400000, guid: 54304c65e41aa8c42a6a91b3e105eab6, type: 2}
+  objectives:
+  - objectiveId: ch2_stall
+    description: Buy vegetables from the market stall
+    isMemoryFragment: 0
+    isOptional: 0
+  - objectiveId: ch2_greet
+    description: Greet a familiar face
+    isMemoryFragment: 0
+    isOptional: 0
+  - objectiveId: ch2_rumor
+    description: Overhear worried talk among neighbours
+    isMemoryFragment: 1
+    isOptional: 1
+  - objectiveId: ch2_bread
+    description: Stop at the bread stall
+    isMemoryFragment: 1
+    isOptional: 1
+  - objectiveId: ch2_ks_basket
+    description: Look at the market basket
+    isMemoryFragment: 0
+    isOptional: 1
+  isFinalChapter: 0
+  nextSceneName: Chapter3_BombingAndHiding

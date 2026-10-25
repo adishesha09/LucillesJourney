@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e11eb966926430645a74f277282b07be, type: 3}
+  m_Name: Ch1_Photo
+  m_EditorClassIdentifier: Assembly-CSharp::LucillesJourney.Narrative.NarrativeSequenceSO
+  sequenceName: Ch1_Photo
+  lines:
+  - speakerName: Narrator
+    text: A photograph, a little creased at the corner. A celebration, long before
+      any of this.
+  - speakerName: Lucille
+    text: I keep meaning to find a frame for this one.

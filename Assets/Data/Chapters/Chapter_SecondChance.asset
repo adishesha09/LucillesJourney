@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d424ff2cf5556be4a82dd2d3bc4ea4ea, type: 3}
+  m_Name: Chapter_SecondChance
+  m_EditorClassIdentifier: Assembly-CSharp::LucillesJourney.Core.ChapterDataSO
+  chapterId: 5
+  displayName: 'Chapter 6: A Second Chance'
+  sceneName: Chapter6_SecondChance
+  introNarrative: {fileID: 11400000, guid: 910a055986a22b6468b26b22121c2686, type: 2}
+  outroNarrative: {fileID: 11400000, guid: abe94f9f5e3ad5346acc3545d96ee1ef, type: 2}
+  objectives:
+  - objectiveId: ch6_settle
+    description: Settle into the new, unfamiliar room
+    isMemoryFragment: 0
+    isOptional: 0
+  - objectiveId: ch6_work
+    description: Find work to support the family
+    isMemoryFragment: 0
+    isOptional: 0
+  - objectiveId: ch6_decision
+    description: Decide how to spend what little money remains
+    isMemoryFragment: 0
+    isOptional: 0
+  - objectiveId: ch6_lock
+    description: Try the lock on the door
+    isMemoryFragment: 1
+    isOptional: 1
+  - objectiveId: ch6_window
+    description: Look at the desk by the window
+    isMemoryFragment: 1
+    isOptional: 1
+  - objectiveId: ch6_ks_key
+    description: Look at the room key
+    isMemoryFragment: 0
+    isOptional: 1
+  isFinalChapter: 1
+  nextSceneName: Ending

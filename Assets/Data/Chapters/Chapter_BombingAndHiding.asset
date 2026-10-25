@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d424ff2cf5556be4a82dd2d3bc4ea4ea, type: 3}
+  m_Name: Chapter_BombingAndHiding
+  m_EditorClassIdentifier: Assembly-CSharp::LucillesJourney.Core.ChapterDataSO
+  chapterId: 2
+  displayName: 'Chapter 3: Bombing and Hiding'
+  sceneName: Chapter3_BombingAndHiding
+  introNarrative: {fileID: 11400000, guid: 2ef9b7b507426954ea5838b2e488d972, type: 2}
+  outroNarrative: {fileID: 11400000, guid: 8b6509ff87f1e8f449a5346dbdce23ab, type: 2}
+  objectives:
+  - objectiveId: ch3_alarm
+    description: React to the first explosion
+    isMemoryFragment: 0
+    isOptional: 0
+  - objectiveId: ch3_shelter
+    description: Find shelter for the children
+    isMemoryFragment: 0
+    isOptional: 0
+  - objectiveId: ch3_wait
+    description: Wait out the attack in hiding
+    isMemoryFragment: 1
+    isOptional: 1
+  - objectiveId: ch3_counting
+    description: Steady the children's breathing
+    isMemoryFragment: 1
+    isOptional: 1
+  - objectiveId: ch3_ks_blanket
+    description: Look at the folded blanket
+    isMemoryFragment: 0
+    isOptional: 1
+  isFinalChapter: 0
+  nextSceneName: Chapter4_Displacement
