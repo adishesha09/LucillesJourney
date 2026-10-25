@@ -80,7 +80,7 @@ namespace LucillesJourney.Core
             EnsureInitialized();
             current.reducedMotion = value;
             SaveSystem.SaveSettings(current);
-            SettingsChanged?.Invoke(current);
+            SettingsChanged?.Invoke(current); 
         }
 
         /// <summary>Re-broadcasts the current settings. Call from OnEnable of UI that needs to sync to live values.</summary>

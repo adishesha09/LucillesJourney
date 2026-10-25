@@ -37,6 +37,19 @@ namespace LucillesJourney.Gamification.UI
         public static bool UsesHeadingFont(TextStyle style) =>
             style == TextStyle.Title || style == TextStyle.Heading || style == TextStyle.Label || style == TextStyle.Button;
 
+        private static T GetOrAdd<T>(GameObject go) where T : Component
+        {
+            var existing = go.GetComponent<T>();
+            return existing != null ? existing : go.AddComponent<T>();
+        }
+
+        private static GridLayoutGroup GetOrAdd<T>(GameObject go, bool responsive) where T : GridLayoutGroup
+        {
+            var existing = go.GetComponent<GridLayoutGroup>();
+            if (existing != null) return existing;
+            return responsive ? (GridLayoutGroup)go.AddComponent<ResponsiveGrid>() : go.AddComponent<GridLayoutGroup>();
+        }
+
         // --- Layout primitives -------------------------------------------------------------------
 
         public static RectTransform Rect(Transform parent, string name)
@@ -70,7 +83,7 @@ namespace LucillesJourney.Gamification.UI
         public static LayoutElement Size(GameObject go, float width = -1f, float height = -1f, float flexWidth = -1f, float flexHeight = -1f,
             float minWidth = -1f, float minHeight = -1f)
         {
-            var le = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
+            var le = GetOrAdd<LayoutElement>(go);
             if (width >= 0f) { le.preferredWidth = width; le.flexibleWidth = flexWidth >= 0f ? flexWidth : 0f; }
             else if (flexWidth >= 0f) le.flexibleWidth = flexWidth;
             if (height >= 0f) { le.preferredHeight = height; le.flexibleHeight = flexHeight >= 0f ? flexHeight : 0f; }
@@ -83,7 +96,7 @@ namespace LucillesJourney.Gamification.UI
         public static VerticalLayoutGroup VBox(GameObject go, float spacing = 0f, int padding = 0, TextAnchor align = TextAnchor.UpperLeft,
             bool expandWidth = true, bool expandHeight = false)
         {
-            var v = go.GetComponent<VerticalLayoutGroup>() ?? go.AddComponent<VerticalLayoutGroup>();
+            var v = GetOrAdd<VerticalLayoutGroup>(go);
             v.spacing = spacing;
             v.padding = new RectOffset(padding, padding, padding, padding);
             v.childAlignment = align;
@@ -97,7 +110,7 @@ namespace LucillesJourney.Gamification.UI
         public static HorizontalLayoutGroup HBox(GameObject go, float spacing = 0f, int padding = 0, TextAnchor align = TextAnchor.MiddleLeft,
             bool expandWidth = false, bool expandHeight = true)
         {
-            var h = go.GetComponent<HorizontalLayoutGroup>() ?? go.AddComponent<HorizontalLayoutGroup>();
+            var h = GetOrAdd<HorizontalLayoutGroup>(go);
             h.spacing = spacing;
             h.padding = new RectOffset(padding, padding, padding, padding);
             h.childAlignment = align;
@@ -110,7 +123,7 @@ namespace LucillesJourney.Gamification.UI
 
         public static GridLayoutGroup Grid(GameObject go, Vector2 cell, Vector2 spacing, int columns, bool responsive = false)
         {
-            var g = go.GetComponent<GridLayoutGroup>() ?? (responsive ? go.AddComponent<ResponsiveGrid>() : go.AddComponent<GridLayoutGroup>());
+            var g = GetOrAdd<GridLayoutGroup>(go, responsive);
             g.cellSize = cell;
             g.spacing = spacing;
             g.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
@@ -121,7 +134,7 @@ namespace LucillesJourney.Gamification.UI
 
         public static void FitHeight(GameObject go)
         {
-            var fitter = go.GetComponent<ContentSizeFitter>() ?? go.AddComponent<ContentSizeFitter>();
+            var fitter = GetOrAdd<ContentSizeFitter>(go);
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
         }

@@ -15,6 +15,7 @@ using LucillesJourney.Gamification;
 using LucillesJourney.Gamification.UI;
 using LucillesJourney.Interaction;
 using LucillesJourney.Narrative;
+using LucillesJourney.UI;
 using LucillesJourney.World;
 
 namespace LucillesJourney.EditorTools
@@ -668,7 +669,13 @@ namespace LucillesJourney.EditorTools
             Check(gm.IsAchievementUnlocked("journey_complete"), "Journey Complete unlocked at the end");
             Check(JourneyStats.IsJourneyComplete, "journey reports complete");
             yield return 30;
+            yield return WaitSeconds(4.5f); // the entrance animation and the first drift of the backdrop
+            var endingBackdrop = GameObject.Find("Backdrop_Ending");
+            Check(endingBackdrop != null && endingBackdrop.GetComponent<MenuBackdrop>().LayerCount >= 7, $"ending has its animated dawn backdrop ({(endingBackdrop != null ? endingBackdrop.GetComponent<MenuBackdrop>().LayerCount : 0)} layers)");
+            Check(GameObject.Find("MessagePanel") != null && GameObject.Find("MessagePanel").GetComponent<CanvasGroup>().alpha > 0.99f, "ending panels have finished their entrance");
             yield return Shot("15_ending");
+            yield return WaitSeconds(18f);
+            yield return Shot("15_ending_later");
 
             // Journey overview with real data
             ui.OpenHub(HubTab.Journey);
@@ -679,9 +686,18 @@ namespace LucillesJourney.EditorTools
             // Main menu
             gm.LoadScene("MainMenu");
             yield return WaitForScene("MainMenu");
-            yield return 30;
-            Check(UnityEngine.Object.FindObjectsByType<Button>(FindObjectsInactive.Exclude, FindObjectsSortMode.None).Length >= 6, "main menu shows Begin, Journey, How To Play, Settings, New Journey, Quit");
+            yield return WaitSeconds(4.5f);
+            var menuColumn = GameObject.Find("ButtonColumn");
+            var menuLabels = menuColumn.GetComponentsInChildren<Button>(false)
+                .Select(b => b.GetComponentInChildren<TMP_Text>().text).ToList();
+            Check(menuLabels.SequenceEqual(new[] { "Continue", "New Journey", "Journey Overview", "Settings", "How To Play", "Quit" }),
+                "main menu order: " + string.Join(" | ", menuLabels));
+            var menuBackdrop = GameObject.Find("Backdrop_Menu");
+            Check(menuBackdrop != null && menuBackdrop.GetComponent<MenuBackdrop>().LayerCount >= 8, $"main menu has its animated dusk backdrop ({(menuBackdrop != null ? menuBackdrop.GetComponent<MenuBackdrop>().LayerCount : 0)} layers)");
+            Check(menuColumn.GetComponentsInChildren<CanvasGroup>(false).All(g => g.alpha > 0.99f), "main menu buttons have finished their entrance");
             yield return Shot("17_main_menu");
+            yield return WaitSeconds(6f);
+            yield return Shot("17_main_menu_later");
             SettingsManager.SetTextScale(1.4f);
             yield return 6;
             yield return Shot("scale_big_main_menu");

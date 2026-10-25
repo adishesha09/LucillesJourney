@@ -41,6 +41,17 @@ namespace LucillesJourney.UI
                 quitButton.onClick.AddListener(() => GameManager.Instance.QuitGame());
                 quitButton.gameObject.SetActive(Application.platform != RuntimePlatform.WebGLPlayer);
             }
+            Decorate();
+        }
+
+        // The dawn road backdrop, then the panels and buttons settling in one after another.
+        private void Decorate()
+        {
+            MenuBackdrop.Create(BackdropKind.Ending);
+            var entrance = MenuEntrance.Create();
+            entrance.Add(transform.Find("TitlePanel"), 0.2f);
+            entrance.Add(transform.Find("MessagePanel"), 0.7f);
+            entrance.Add(transform.Find("ButtonColumn"), 1.2f);
         }
 
         // Lets the player look back over everything they found: chapters, memories, keepsakes and achievements.
@@ -56,9 +67,6 @@ namespace LucillesJourney.UI
             var label = clone.GetComponentInChildren<TMP_Text>();
             if (label != null) label.text = "Journey Overview";
             clone.transform.SetSiblingIndex(quitButton.transform.GetSiblingIndex());
-
-            var column = quitButton.transform.parent as RectTransform;
-            if (column != null) column.sizeDelta += new Vector2(0f, 80f);
         }
     }
 }

@@ -7,8 +7,8 @@ using LucillesJourney.Gamification.UI;
 namespace LucillesJourney.UI
 {
     /// <summary>
-    /// Title screen. Begin resumes from the player's furthest unlocked chapter (or Chapter 1 for
-    /// a fresh save), so there's no separate "Continue" button to keep but no progress is lost either.
+    /// Title screen. Continue resumes from the player's furthest unlocked chapter (it reads "Begin Journey" until
+    /// there is a save), and New Journey starts over after a confirmation.
     /// </summary>
     public class MainMenuController : MonoBehaviour
     {
@@ -63,14 +63,93 @@ namespace LucillesJourney.UI
 
         private void Start()
         {
-            if (JourneyUI.Instance == null || guideButton == null) return;
-
-            // Extra entries cloned from an existing button so they share its layout and skin.
-            AddButton("Journey Overview", () => JourneyUI.Instance.OpenHub(HubTab.Journey), beginButton);
-            AddButton("New Journey", ConfirmNewGame, quitButton);
+            if (JourneyUI.Instance != null && guideButton != null)
+            {
+                // Extra entries cloned from an existing button so they share its layout and skin.
+                journeyButton = AddButton("Journey Overview", () => JourneyUI.Instance.OpenHub(HubTab.Journey));
+                newJourneyButton = AddButton("New Journey", ConfirmNewGame);
+            }
+            ArrangeButtons();
+            Decorate();
         }
 
-        private void AddButton(string label, UnityEngine.Events.UnityAction action, Button placeAfter)
+        private Button journeyButton, newJourneyButton;
+
+        private bool HasProgress =>
+            GameManager.Instance.HighestUnlockedChapterIndex > 0 || GameManager.Instance.IsObjectiveComplete("ch1_garden")
+            || GameManager.Instance.IsObjectiveComplete("ch1_breakfast") || GameManager.Instance.PlayTimeSeconds > 1f;
+
+        /// <summary>
+        /// Orders the menu from "play" to "leave": Continue and New Journey first (carry on or start over), then the
+        /// archive of what you have found, then settings and help, and finally Quit. New Journey only appears when there
+        /// is something to start over from, and the main button reads "Begin Journey" until the first save exists.
+        /// </summary>
+        private void ArrangeButtons()
+        {
+            bool hasProgress = HasProgress;
+            SetLabel(beginButton, hasProgress ? "Continue" : "Begin Journey");
+            if (newJourneyButton != null) newJourneyButton.gameObject.SetActive(hasProgress);
+            if (journeyButton != null) journeyButton.gameObject.SetActive(hasProgress);
+
+            var order = new Button[] { beginButton, newJourneyButton, journeyButton, settingsButton, guideButton, quitButton };
+            int index = 0;
+            foreach (var button in order)
+            {
+                if (button == null) continue;
+                button.transform.SetSiblingIndex(index++);
+            }
+            SetLabel(guideButton, "How To Play");
+        }
+
+        private static void SetLabel(Button button, string text)
+        {
+            if (button == null) return;
+            var label = button.GetComponentInChildren<TMPro.TMP_Text>();
+            if (label != null) label.text = text;
+        }
+
+        // Animated backdrop, title shadow and ornament, and the staggered entrance.
+        private void Decorate()
+        {
+            MenuBackdrop.Create(BackdropKind.Menu);
+
+            var entrance = MenuEntrance.Create();
+            var titleBlock = transform.Find("TitleBlock");
+            if (titleBlock != null)
+            {
+                var title = titleBlock.Find("Title")?.GetComponent<TMPro.TMP_Text>();
+                var subtitle = titleBlock.Find("Subtitle")?.GetComponent<TMPro.TMP_Text>();
+                if (title != null)
+                {
+                    var shadow = MenuDecor.AddShadow(title, new Vector2(8f, -8f), new Color(0.10f, 0.07f, 0.06f, 0.9f));
+                    if (shadow != null) { shadow.gameObject.AddComponent<TitleBob>(); entrance.Add(shadow, 0.05f); }
+                    title.gameObject.AddComponent<TitleBob>();
+                    entrance.Add(title, 0f);
+                }
+                var ornament = MenuDecor.AddOrnament(titleBlock, new Vector2(0f, -112f), 5f);
+                if (ornament != null) entrance.Add(ornament, 0.15f);
+                if (subtitle != null) entrance.Add(subtitle, 0.25f);
+            }
+
+            var footer = transform.Find("Footer")?.GetComponent<TMPro.TMP_Text>();
+            if (footer != null)
+            {
+                var footerShadow = MenuDecor.AddShadow(footer, new Vector2(3f, -3f), new Color(0.07f, 0.05f, 0.04f, 1f));
+                footer.fontStyle = TMPro.FontStyles.Bold;
+                entrance.Add(footer, 1.6f);
+                if (footerShadow != null) entrance.Add(footerShadow, 1.6f);
+            }
+
+            float delay = 0.35f;
+            foreach (var button in transform.GetComponentsInChildren<Button>(false))
+            {
+                if (button.transform.parent.name != "ButtonColumn") continue;
+                entrance.Add(button, delay);
+                delay += 0.09f;
+            }
+        }
+
+        private Button AddButton(string label, UnityEngine.Events.UnityAction action)
         {
             var clone = Instantiate(guideButton.gameObject, guideButton.transform.parent);
             clone.name = label.Replace(" ", "") + "Button";
@@ -79,7 +158,7 @@ namespace LucillesJourney.UI
             button.onClick.AddListener(action);
             var text = clone.GetComponentInChildren<TMPro.TMP_Text>();
             if (text != null) text.text = label;
-            if (placeAfter != null) clone.transform.SetSiblingIndex(placeAfter.transform.GetSiblingIndex() + (placeAfter == beginButton ? 1 : 0));
+            return button;
         }
 
         private void ConfirmNewGame()

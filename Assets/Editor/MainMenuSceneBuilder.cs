@@ -37,25 +37,23 @@ namespace LucillesJourney.EditorTools
             var titleGroup = new GameObject("TitleBlock", typeof(RectTransform));
             SceneBuildUtility.SetParent(titleGroup, canvasRoot.transform);
             SceneBuildUtility.Anchor(titleGroup, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f), new Vector2(0, -60), new Vector2(1200, 180));
+                new Vector2(0.5f, 1f), new Vector2(0, -50), new Vector2(1500, 250));
 
             SceneBuildUtility.CreateText(titleGroup.transform, "Title", "Lucille's Journey", 72, TextColor,
                 TextAlignmentOptions.Center);
             var subtitle = SceneBuildUtility.CreateText(titleGroup.transform, "Subtitle",
-                "A story of ordinary life, displacement, and an impossible choice.", 28, TextColor * new Color(1, 1, 1, 0.85f),
+                "A story of ordinary life, displacement, and an impossible choice.", 28, TextColor * new Color(1, 1, 1, 0.9f),
                 TextAlignmentOptions.Center);
             SceneBuildUtility.Anchor(subtitle.gameObject, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(0, 0), new Vector2(1000, 60));
+                new Vector2(0.5f, 0f), new Vector2(0, 0), new Vector2(1400, 60));
             SceneBuildUtility.Anchor(titleGroup.transform.GetChild(0).gameObject, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f), new Vector2(0, 0), new Vector2(1200, 100));
+                new Vector2(0.5f, 1f), new Vector2(0, 0), new Vector2(1500, 100));
 
             // Button column.
             var buttonColumn = new GameObject("ButtonColumn", typeof(RectTransform));
             SceneBuildUtility.SetParent(buttonColumn, canvasRoot.transform);
-            // Anchored under the title (top-down) rather than from the screen centre, so the title, subtitle and the
-            // six buttons never collide when the interface is zoomed in and the canvas gets smaller.
             SceneBuildUtility.Anchor(buttonColumn, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f), new Vector2(0, -270), new Vector2(460, 320));
+                new Vector2(0.5f, 1f), new Vector2(0, -330), new Vector2(460, 320));
             SceneBuildUtility.AddVerticalLayout(buttonColumn, spacing: 14, controlHeight: true);
             var fitter = buttonColumn.AddComponent<UnityEngine.UI.ContentSizeFitter>();
             fitter.verticalFit = UnityEngine.UI.ContentSizeFitter.FitMode.PreferredSize;

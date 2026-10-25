@@ -125,6 +125,7 @@ namespace LucillesJourney.Gamification.UI
             foreach (var scaler in FindObjectsByType<CanvasScaler>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (scaler.uiScaleMode != CanvasScaler.ScaleMode.ScaleWithScreenSize) continue;
+                if (scaler.GetComponent<NoInterfaceScale>() != null) continue; // decorative backdrops keep their fixed size
                 if (scaler.referenceResolution != reference) scaler.referenceResolution = reference;
             }
         }
