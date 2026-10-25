@@ -303,6 +303,52 @@ namespace LucillesJourney.EditorTools
             UnityEngine.Object.FindObjectsByType<Interactable>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
                 .FirstOrDefault(i => i.InteractionId == id)?.gameObject;
 
+        /// <summary>True when every prop gated on <paramref name="key"/> is shown/hidden as the key's value (expectedSet) demands.</summary>
+        private static bool GatesMatchState(string key, bool expectedSet)
+        {
+            var gates = UnityEngine.Object.FindObjectsByType<EnvironmentStateGate>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Where(g => g.StateKey == key).ToList();
+            return gates.Count > 0 && gates.All(g => g.GetComponent<Renderer>().enabled == (g.VisibleWhenSet == expectedSet));
+        }
+
+        /// <summary>Checks a generated chapter overworld: it is loaded, depth-sorted, and every spot is reachable by the interaction detector.</summary>
+        private static IEnumerator ChapterWorldChecks(string tag, string[] ids)
+        {
+            LucillesJourney.World.CameraFollow2D.OverrideScreenHeight = 1080;
+            var player = Player;
+            Check(player != null, $"{tag}: player exists");
+            if (player == null) yield break;
+            var start = player.transform.position;
+
+            Check(GameObject.Find("Ground") != null && GameObject.Find("Props") != null, $"{tag}: the generated overworld is loaded, not the placeholder room");
+            Check(player.GetComponent<DepthSortedCharacter>() != null, $"{tag}: the player depth-sorts against props");
+            var walls = LayerMask.GetMask("Walls");
+            Check(Physics2D.OverlapCircle(start, 0.3f, walls) == null, $"{tag}: the start position is on open ground");
+            var propsRoot = GameObject.Find("Props");
+            Check(propsRoot != null && propsRoot.GetComponentsInChildren<SpriteRenderer>(true).Length > 40, $"{tag}: the map is populated with props");
+            var collidersRoot = GameObject.Find("Colliders");
+            Check(collidersRoot != null && collidersRoot.transform.childCount > 15, $"{tag}: solid props and walls have colliders");
+            Check(Camera.main != null && Camera.main.GetComponent<LucillesJourney.World.CameraFollow2D>() != null, $"{tag}: the camera follows the player");
+
+            var detector = player.GetComponent<InteractionDetector>();
+            foreach (var id in ids)
+            {
+                var target = FindInteractable(id);
+                Check(target != null, $"{tag}: interaction spot '{id}' exists");
+                if (target == null) continue;
+                Check(Physics2D.OverlapCircle(target.transform.position, 0.3f, walls) == null, $"{tag}: spot '{id}' is on open ground");
+                TeleportPlayer(target.transform.position);
+                yield return 5;
+                if (target.CanInteract)
+                    Check(detector.Current != null && detector.Current.InteractionId == id, $"{tag}: standing at '{id}' focuses it (nothing blocks the line)");
+                yield return Shot($"w_{tag}_{id}");
+            }
+
+            TeleportPlayer(start);
+            yield return WaitSeconds(0.9f);
+            yield return Shot($"w_{tag}_start");
+        }
+
         private static Button FindButton(JourneyScreen screen, string name) =>
             screen.Root.GetComponentsInChildren<Button>(true).FirstOrDefault(b => b.name == name);
 
@@ -612,12 +658,30 @@ namespace LucillesJourney.EditorTools
             ui.CloseAll();
             yield return 4;
 
+            // Chapters 2, 3 and 5: generated overworlds
+            foreach (var (scene, tag, ids) in new[]
+            {
+                ("Chapter2_TheMarket", "ch2", new[] { "ch2_stall", "ch2_greet", "ch2_rumor", "ch2_bread", "ch2_ks_basket" }),
+                ("Chapter3_BombingAndHiding", "ch3", new[] { "ch3_alarm", "ch3_shelter", "ch3_wait", "ch3_counting", "ch3_ks_blanket" }),
+                ("Chapter5_Survival", "ch5", new[] { "ch5_water", "ch5_shelter", "ch5_share", "ch5_neighbours", "ch5_ks_jug" }),
+            })
+            {
+                gm.LoadScene(scene);
+                yield return WaitForScene(scene);
+                yield return ReadNarrative();
+                yield return ChapterWorldChecks(tag, ids);
+            }
+
             // Chapter 4: multi-step packing, prerequisite unlock and visible removal of packed items
             gm.LoadScene("Chapter4_Displacement");
             yield return WaitForScene("Chapter4_Displacement");
             yield return ReadNarrative();
             var depart = FindInteractable("ch4_depart");
             Check(depart != null && !depart.CanInteract, "departing is locked until the bag is packed");
+            yield return ChapterWorldChecks("ch4", new[] { "ch4_pack_documents", "ch4_pack_food", "ch4_pack_photo", "ch4_depart", "ch4_farewell", "ch4_shelf", "ch4_ks_clothbag" });
+            Check(GatesMatchState("ch4_documents_packed", false) && GatesMatchState("ch4_food_packed", false) && GatesMatchState("ch4_photo_packed", false),
+                "before packing: the documents, food and photograph are visible in the house");
+            Check(GatesMatchState("ch4_bag_packed", false), "before packing: the bag is open");
 
             // Dialogue box at the largest text size
             var longSequence = ScriptableObject.CreateInstance<NarrativeSequenceSO>();
@@ -656,18 +720,17 @@ namespace LucillesJourney.EditorTools
             yield return 10;
             Check(gm.IsObjectiveComplete("ch4_pack"), "parent objective completes when all steps are done");
             Check(gm.IsAchievementUnlocked("ready_to_leave"), "Ready to Leave unlocked");
-            Check(FindActive("ch4_pack_food") == null, "packed items are removed from the room");
+            Check(GatesMatchState("ch4_food_packed", true) && GatesMatchState("ch4_documents_packed", true) && GatesMatchState("ch4_photo_packed", true),
+                "packed items are removed from the house");
             Check(depart.CanInteract, "departing unlocks once packing is complete");
-            var bag = GameObject.Find("Prop_Bag")?.GetComponent<SpriteRenderer>();
-            Check(bag != null && bag.sprite != null && bag.sprite.name.Contains("packed"), "bag prop shows the packed state");
+            Check(GatesMatchState("ch4_bag_packed", true), "the bag is shown closed once packed");
 
             // Reload the scene: environment state must be restored
             gm.LoadScene("Chapter4_Displacement");
             yield return WaitForScene("Chapter4_Displacement");
             yield return 20;
-            Check(FindActive("ch4_pack_food") == null, "packed items stay removed after reloading the scene");
-            bag = GameObject.Find("Prop_Bag")?.GetComponent<SpriteRenderer>();
-            Check(bag != null && bag.sprite != null && bag.sprite.name.Contains("packed"), "bag state restored after reload");
+            Check(GatesMatchState("ch4_food_packed", true), "packed items stay removed after reloading the scene");
+            Check(GatesMatchState("ch4_bag_packed", true), "bag state restored after reload");
             Check(FindInteractable("ch4_depart")?.CanInteract == true, "prerequisite state restored after reload");
 
             // Chapter 6: the final decision
@@ -675,6 +738,8 @@ namespace LucillesJourney.EditorTools
             gm.LoadScene("Chapter6_SecondChance");
             yield return WaitForScene("Chapter6_SecondChance");
             yield return ReadNarrative();
+            yield return ChapterWorldChecks("ch6", new[] { "ch6_settle", "ch6_work", "ch6_lock", "ch6_window", "ch6_ks_key", "ch6_decision" });
+            Check(GatesMatchState("ch6_settled", true), "the room shows its settled state when the objective is done");
             yield return 5;
             Interact("ch6_decision");
             yield return ReadNarrative(); // framing narrative

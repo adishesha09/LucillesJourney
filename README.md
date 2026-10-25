@@ -19,6 +19,7 @@ Move: WASD / arrows / left stick. Interact: E / Space / gamepad A. Pause: Esc. Q
 - `Assets/Resources/JourneyUI` - pixel-art sprites; `Resources/Audio` - music and effects; `Resources/Fonts` - pixel fonts
 - `Assets/Editor` - scene builders, validators and the automated Play Mode test (`JourneyPlayTests`)
 - `Tools/PixelArt`, `Tools/AudioGen` - .NET tools that generate the sprites and audio (run with `dotnet run -c Release --project Tools/<name>`)
+- `Tools/WorldArt` (Chapter 1) and `Tools/WorldArtCh2` ... `Tools/WorldArtCh6` - generate each chapter's overworld: baked ground, props, depth-sorted layout JSON in `Assets/Resources/World`. Artist-made art can later replace any of these sprites by name; the layout files only reference sprite names, and Lucille depth-sorts against every prop by her feet.
 
 ## Saves
 Progress is one JSON file in the Unity persistent data path, with a `.bak` backup. Use **Lucille's Journey > Save > Back Up and Reset Progress** for a safe test reset.

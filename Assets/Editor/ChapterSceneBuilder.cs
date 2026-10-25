@@ -82,7 +82,7 @@ namespace LucillesJourney.EditorTools
             SceneBuildUtility.CreateEventSystem();
 
             // Chapters with a generated overworld layout get the full world; the rest keep the original placeholder room.
-            var player = WorldLayoutBuilder.Build(chapterId, camera, placements);
+            var player = WorldLayoutBuilder.Build(chapterId, camera, placements, choice);
             if (player == null)
             {
                 BuildEnvironment();
@@ -90,8 +90,8 @@ namespace LucillesJourney.EditorTools
 
                 foreach (var p in placements) BuildInteractable(p);
                 BuildProps(chapterId);
+                if (choice.HasValue) BuildChoiceInteractable(choice.Value);
             }
-            if (choice.HasValue) BuildChoiceInteractable(choice.Value);
 
             var canvasRoot = SceneBuildUtility.CreateCanvas("HUDCanvas").gameObject;
 
@@ -259,6 +259,12 @@ namespace LucillesJourney.EditorTools
             var interactable = go.AddComponent<Interactable>();
             interactable.Configure(c.objectiveId, c.prompt);
 
+            AttachChoiceBehaviour(go, c);
+        }
+
+        /// <summary>Wires the "impossible choice" components onto an object that already has its Interactable.</summary>
+        public static void AttachChoiceBehaviour(GameObject go, ChoiceContent c)
+        {
             var options = c.optionSpecs.Select(spec => new ChoiceOption
             {
                 id = spec.id,

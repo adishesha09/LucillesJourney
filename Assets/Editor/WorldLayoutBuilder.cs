@@ -42,7 +42,11 @@ namespace LucillesJourney.EditorTools
         public int x, y;
         public int radius = 12;
         public int markerX, markerY;
+        public string stateKey = "";
     }
+
+    /// <summary>Records a state flag when an objective that has no visible interaction spot (e.g. a multi-step task) completes.</summary>
+    [Serializable] public class LayoutStateSetter { public string objective = ""; public string key = ""; }
 
     /// <summary>The data produced by Tools/WorldArt: one chapter's map, props, colliders and interaction spots.</summary>
     [Serializable]
@@ -56,6 +60,7 @@ namespace LucillesJourney.EditorTools
         public LayoutAnimated[] animated = new LayoutAnimated[0];
         public LayoutCollider[] colliders = new LayoutCollider[0];
         public LayoutInteractable[] interactables = new LayoutInteractable[0];
+        public LayoutStateSetter[] stateSetters = new LayoutStateSetter[0];
     }
 
     /// <summary>
@@ -91,7 +96,7 @@ namespace LucillesJourney.EditorTools
         }
 
         /// <summary>Returns the player GameObject, or null if the chapter has no layout.</summary>
-        public static GameObject Build(ChapterId chapter, GameObject cameraGo, InteractablePlacement[] placements)
+        public static GameObject Build(ChapterId chapter, GameObject cameraGo, InteractablePlacement[] placements, ChoiceContent? choice = null)
         {
             var asset = AssetDatabase.LoadAssetAtPath<TextAsset>(LayoutPath(chapter));
             if (asset == null) return null;
@@ -146,6 +151,11 @@ namespace LucillesJourney.EditorTools
             interactablesRoot.SetParent(root.transform, false);
             foreach (var spot in layout.interactables)
             {
+                if (choice.HasValue && spot.id == choice.Value.objectiveId)
+                {
+                    CreateChoiceInteractable(interactablesRoot, spot, choice.Value, ppu);
+                    continue;
+                }
                 var placement = placements.FirstOrDefault(p => p.objectiveId == spot.id);
                 if (string.IsNullOrEmpty(placement.objectiveId))
                 {
@@ -158,6 +168,16 @@ namespace LucillesJourney.EditorTools
             foreach (var p in placements)
                 if (!layout.interactables.Any(s => s.id == p.objectiveId))
                     Debug.LogError($"WorldLayoutBuilder: objective '{p.objectiveId}' has no interaction spot in the layout, so it cannot be completed.");
+            if (choice.HasValue && !layout.interactables.Any(s => s.id == choice.Value.objectiveId))
+                Debug.LogError($"WorldLayoutBuilder: the decision '{choice.Value.objectiveId}' has no interaction spot in the layout, so it cannot be made.");
+
+            // Objectives with no spot of their own (multi-step tasks) still drive a state flag, e.g. the bag closing once packed.
+            foreach (var setter in layout.stateSetters)
+            {
+                var go = new GameObject($"StateSetter_{setter.key}");
+                go.transform.SetParent(interactablesRoot, false);
+                go.AddComponent<EnvironmentStateVisual>().Configure(setter.key, setter.objective, null, false, Color.white);
+            }
 
             return player;
         }
@@ -233,24 +253,47 @@ namespace LucillesJourney.EditorTools
             narrative.Configure(NarrativeContentBuilder.Load(p.narrativeName), p.isMemory);
 
             // Completing the objective records a persistent flag the props use to change (dry beds -> watered beds, ...).
+            // A key written in the layout wins over the placement table.
+            string stateKey = !string.IsNullOrEmpty(spot.stateKey) ? spot.stateKey
+                : string.IsNullOrEmpty(p.stateKey) ? $"{p.objectiveId}_done" : p.stateKey;
             var visual = go.AddComponent<EnvironmentStateVisual>();
-            visual.Configure(string.IsNullOrEmpty(p.stateKey) ? $"{p.objectiveId}_done" : p.stateKey, p.objectiveId, null, false, Color.white);
+            visual.Configure(stateKey, p.objectiveId, null, false, Color.white);
 
             go.AddComponent<InteractionPrerequisite>();
+            AddMarker(go.transform, spot, p.objectiveId, ppu);
+        }
 
-            // Floating sparkle over the object, until the objective is done.
+        private static void CreateChoiceInteractable(Transform parent, LayoutInteractable spot, ChoiceContent c, int ppu)
+        {
+            var go = new GameObject($"Interactable_{c.objectiveId}", typeof(CircleCollider2D));
+            go.transform.SetParent(parent, false);
+            go.transform.position = ToWorld(spot.x, spot.y, ppu);
+            int layer = LayerMask.NameToLayer("Interactable");
+            if (layer >= 0) go.layer = layer;
+
+            var collider = go.GetComponent<CircleCollider2D>();
+            collider.isTrigger = true;
+            collider.radius = Mathf.Max(6, spot.radius) / (float)ppu;
+
+            go.AddComponent<Interactable>().Configure(c.objectiveId, c.prompt);
+            ChapterSceneBuilder.AttachChoiceBehaviour(go, c);
+            AddMarker(go.transform, spot, c.objectiveId, ppu);
+        }
+
+        // Floating sparkle over the object, until the objective is done.
+        private static void AddMarker(Transform parent, LayoutInteractable spot, string objectiveId, int ppu)
+        {
             var markerSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Resources/JourneyUI/world_pending.png");
-            if (markerSprite != null)
-            {
-                var marker = new GameObject("Marker", typeof(SpriteRenderer));
-                marker.transform.SetParent(go.transform, false);
-                marker.transform.position = ToWorld(spot.markerX != 0 || spot.markerY != 0 ? spot.markerX : spot.x,
-                    spot.markerX != 0 || spot.markerY != 0 ? spot.markerY : spot.y + 20, ppu);
-                var renderer = marker.GetComponent<SpriteRenderer>();
-                renderer.sprite = markerSprite;
-                renderer.sortingOrder = MarkerOrder;
-                marker.AddComponent<ObjectiveMarker>().Configure(p.objectiveId);
-            }
+            if (markerSprite == null) return;
+
+            var marker = new GameObject("Marker", typeof(SpriteRenderer));
+            marker.transform.SetParent(parent, false);
+            bool hasMarker = spot.markerX != 0 || spot.markerY != 0;
+            marker.transform.position = ToWorld(hasMarker ? spot.markerX : spot.x, hasMarker ? spot.markerY : spot.y + 20, ppu);
+            var renderer = marker.GetComponent<SpriteRenderer>();
+            renderer.sprite = markerSprite;
+            renderer.sortingOrder = MarkerOrder;
+            marker.AddComponent<ObjectiveMarker>().Configure(objectiveId);
         }
     }
 }
