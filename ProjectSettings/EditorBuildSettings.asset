@@ -30,6 +30,12 @@ EditorBuildSettings:
     path: Assets/Scenes/Ending.unity
     guid: 6e132a47954608244ab891a613de9cb4
   m_configObjects:
+    UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: a5c020a75c432f3478970adebd5ae104, type: 2}
+    UnityEditor.XR.ARKit.ARKitSettings: {fileID: 11400000, guid: 89db5ffbfa8311849b7970657e03f301, type: 2}
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
+    com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 968f61933da83cc4299870bd4498dce0, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: c687a4f3cf5483f49872ccc3faf4fbf5, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 69f08964905c1344ab89840fd860567b, type: 2}
+    xr.sdk.mock-hmd.settings: {fileID: 11400000, guid: f2f14631c2a61984bbe6e9145cc749cc, type: 2}
   m_UseUCBPForAssetBundles: 0

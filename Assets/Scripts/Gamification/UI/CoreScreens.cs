@@ -261,6 +261,43 @@ namespace LucillesJourney.Gamification.UI
         }
     }
 
+    /// <summary>Who made the game, opened from the main menu's Credits button.</summary>
+    public class CreditsScreen : JourneyScreen
+    {
+        private const int S = UIFactory.S;
+        private Button back;
+        protected override Selectable DefaultSelection => back;
+
+        private static readonly (string name, string roles)[] Team =
+        {
+            ("Adishesha Nandkoomar", "Game Designer, Programmer and AR Developer"),
+            ("Ayden Willett", "Art Director, Pixel Artist and Designer"),
+            ("Mikayla Aucamp", "UX Designer and AR Designer"),
+        };
+
+        protected override void Build(RectTransform root)
+        {
+            var body = BuildFrame(root, "Credits", "icon_star", new Vector2(1300f, 800f), out _);
+            UIFactory.VBox(body.gameObject, spacing: 3 * S);
+            var scrollContent = UIFactory.ScrollView(body, "Scroll", out _);
+            UIFactory.VBox(scrollContent.gameObject, spacing: 5 * S, padding: 2 * S);
+            UIFactory.FitHeight(scrollContent.gameObject);
+
+            foreach (var (name, roles) in Team)
+            {
+                var entry = UIFactory.Rect(scrollContent, "Credit");
+                UIFactory.VBox(entry.gameObject, spacing: S, expandHeight: false);
+                UIFactory.FitHeight(entry.gameObject);
+                var n = UIFactory.Text(entry, "Name", name, TextStyle.Heading, PixelTheme.Gold, TextAlignmentOptions.TopLeft);
+                UIFactory.Size(n.gameObject, flexWidth: 1f);
+                var r = UIFactory.Text(entry, "Roles", roles, TextStyle.Body, PixelTheme.Cream, TextAlignmentOptions.TopLeft);
+                UIFactory.Size(r.gameObject, flexWidth: 1f);
+            }
+
+            back = UIFactory.MakeButton(body, "Back", "Back", () => Ui.Back(), ButtonKind.Primary, "icon_arrow_left", 90 * S, 22 * S);
+        }
+    }
+
     /// <summary>A small yes/no confirmation used before leaving to the main menu, quitting or starting a new game.</summary>
     public class ConfirmScreen : JourneyScreen
     {

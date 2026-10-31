@@ -47,6 +47,7 @@ namespace LucillesJourney.Gamification.UI
         private HubScreen hubScreen;
         private SettingsScreen settingsScreen;
         private ControlsScreen controlsScreen;
+        private CreditsScreen creditsScreen;
         private ChapterSummaryScreen summaryScreen;
         private FinalChoiceScreen choiceScreen;
         private ConfirmScreen confirmScreen;
@@ -250,6 +251,7 @@ namespace LucillesJourney.Gamification.UI
 
         public void OpenSettings() => Push(settingsScreen ??= CreateScreen(new SettingsScreen()));
         public void OpenControls() => Push(controlsScreen ??= CreateScreen(new ControlsScreen()));
+        public void OpenCredits() => Push(creditsScreen ??= CreateScreen(new CreditsScreen()));
 
         public void Confirm(string title, string message, string confirmLabel, Action onConfirm)
         {

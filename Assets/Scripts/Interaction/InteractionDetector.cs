@@ -23,6 +23,12 @@ namespace LucillesJourney.Interaction
         private InputAction pointerPressAction;
         private Camera mainCamera;
 
+        /// <summary>
+        /// Set by the AR tabletop so a screen tap can be mapped onto the 2D world (returns null for a miss).
+        /// Stays null on a normal flat-screen build, where the main camera is used.
+        /// </summary>
+        public static Func<Vector2, Vector2?> ScreenToWorldOverride;
+
         /// <summary>The Interactable currently highlighted, or null.</summary>
         public Interactable Current { get; private set; }
 
@@ -136,10 +142,24 @@ namespace LucillesJourney.Interaction
         {
             if (!InteractionEnabled || GameManager.Instance.IsPaused) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return; // clicked UI
-            if (mainCamera == null) mainCamera = Camera.main;
-            if (mainCamera == null || Pointer.current == null) return;
+            if (Pointer.current == null) return;
+            Vector2 screen = Pointer.current.position.ReadValue();
 
-            Vector2 world = mainCamera.ScreenToWorldPoint(Pointer.current.position.ReadValue());
+            Vector2 world;
+            if (ScreenToWorldOverride != null)
+            {
+                // AR tabletop: the game is shown on a board, so the tap has to be mapped through it.
+                var mapped = ScreenToWorldOverride(screen);
+                if (mapped == null) return;
+                world = mapped.Value;
+            }
+            else
+            {
+                if (mainCamera == null) mainCamera = Camera.main;
+                if (mainCamera == null) return;
+                world = mainCamera.ScreenToWorldPoint(screen);
+            }
+
             var hit = Physics2D.OverlapPoint(world, interactableMask);
             if (hit == null) return;
 

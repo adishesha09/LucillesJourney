@@ -1,6 +1,7 @@
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
+using LucillesJourney.AR;
 using LucillesJourney.Core;
 using LucillesJourney.Gamification.UI;
 
@@ -38,7 +39,7 @@ namespace LucillesJourney.UI
 
         private void WireListeners()
         {
-            if (beginButton != null) beginButton.onClick.AddListener(Begin);
+            if (beginButton != null) beginButton.onClick.AddListener(BeginFlat);
             if (guideButton != null) guideButton.onClick.AddListener(OpenControls);
             if (settingsButton != null) settingsButton.onClick.AddListener(OpenSettings);
             if (quitButton != null)
@@ -68,12 +69,19 @@ namespace LucillesJourney.UI
                 // Extra entries cloned from an existing button so they share its layout and skin.
                 journeyButton = AddButton("Journey Overview", () => JourneyUI.Instance.OpenHub(HubTab.Journey));
                 newJourneyButton = AddButton("New Journey", ConfirmNewGame);
+                creditsButton = AddButton("Credits", () => JourneyUI.Instance.OpenCredits());
             }
+            // Only offered on a device/build that can actually run AR (see ARMode.Supported).
+            if (ARMode.Supported && guideButton != null) arButton = AddButton("Play in AR", BeginAR);
+            // Desktop: camera mode using the laptop/PC webcam (not real AR - see WebcamTabletop). In a desktop build it is the
+            // only AR entry, so it is simply "Play in AR"; the editor also has the simulator entry, so it is told apart there.
+            if (ARMode.WebcamSupported && guideButton != null)
+                cameraButton = AddButton(ARMode.Supported ? "Play in AR (Camera)" : "Play in AR", BeginCamera);
             ArrangeButtons();
             Decorate();
         }
 
-        private Button journeyButton, newJourneyButton;
+        private Button journeyButton, newJourneyButton, creditsButton, arButton, cameraButton;
 
         private bool HasProgress =>
             GameManager.Instance.HighestUnlockedChapterIndex > 0 || GameManager.Instance.IsObjectiveComplete("ch1_garden")
@@ -81,8 +89,9 @@ namespace LucillesJourney.UI
 
         /// <summary>
         /// Orders the menu from "play" to "leave": Continue and New Journey first (carry on or start over), then the
-        /// archive of what you have found, then settings and help, and finally Quit. New Journey only appears when there
-        /// is something to start over from, and the main button reads "Begin Journey" until the first save exists.
+        /// archive of what you have found, then settings and help, then Credits, and finally Quit. New Journey only
+        /// appears when there is something to start over from, and the main button reads "Begin Journey" until the
+        /// first save exists.
         /// </summary>
         private void ArrangeButtons()
         {
@@ -91,7 +100,7 @@ namespace LucillesJourney.UI
             if (newJourneyButton != null) newJourneyButton.gameObject.SetActive(hasProgress);
             if (journeyButton != null) journeyButton.gameObject.SetActive(hasProgress);
 
-            var order = new Button[] { beginButton, newJourneyButton, journeyButton, settingsButton, guideButton, quitButton };
+            var order = new Button[] { beginButton, arButton, cameraButton, newJourneyButton, journeyButton, settingsButton, guideButton, creditsButton, quitButton };
             int index = 0;
             foreach (var button in order)
             {
@@ -170,6 +179,36 @@ namespace LucillesJourney.UI
                     GameManager.Instance.StartNewGame();
                     Begin();
                 });
+        }
+
+        private void BeginFlat()
+        {
+            ARMode.Requested = false;
+            ARMode.WebcamRequested = false;
+            Begin();
+        }
+
+        private void BeginCamera()
+        {
+            if (!ARMode.WebcamAvailable && JourneyUI.Instance != null)
+            {
+                JourneyUI.Instance.Confirm("No camera found",
+                    "Plug in or enable a webcam to see the game in your room. You can also play on with a plain background.",
+                    "Play anyway", () =>
+                    {
+                        ARMode.WebcamRequested = true;
+                        Begin();
+                    });
+                return;
+            }
+            ARMode.WebcamRequested = true;
+            Begin();
+        }
+
+        private void BeginAR()
+        {
+            ARMode.Requested = true;
+            Begin();
         }
 
         private void Begin()
