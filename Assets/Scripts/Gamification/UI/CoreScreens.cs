@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using LucillesJourney.AR;
 using LucillesJourney.Core;
 
 namespace LucillesJourney.Gamification.UI
@@ -13,12 +14,14 @@ namespace LucillesJourney.Gamification.UI
         private const int S = UIFactory.S;
         private Button resume;
         private TMP_Text chapterLabel;
+        private TMP_Text cameraLabel;
+        private Button cameraButton;
 
         protected override Selectable DefaultSelection => resume;
 
         protected override void Build(RectTransform root)
         {
-            var body = BuildFrame(root, "Paused", "icon_pause", new Vector2(1040f, 800f), out _);
+            var body = BuildFrame(root, "Paused", "icon_pause", new Vector2(1040f, 880f), out _);
             UIFactory.VBox(body.gameObject, spacing: 4 * S);
 
             chapterLabel = UIFactory.Text(body, "Chapter", "", TextStyle.Body, PixelTheme.Sand, TextAlignmentOptions.MidlineLeft);
@@ -39,6 +42,17 @@ namespace LucillesJourney.Gamification.UI
             UIFactory.MakeButton(grid, "Settings", "Settings", () => Ui.OpenSettings(), ButtonKind.Secondary, "icon_settings");
             UIFactory.MakeButton(grid, "Controls", "Controls", () => Ui.OpenControls(), ButtonKind.Secondary, "icon_help");
 
+            // Laptop webcam AR mode: on PCs only (phones use the real AR button on the main menu).
+            if (ARMode.WebcamSupported)
+            {
+                cameraButton = UIFactory.MakeButton(body, "CameraAR", "Play in AR (Camera)", () =>
+                {
+                    if (WebcamTabletop.IsActive) { WebcamTabletop.Disable(); Refresh(); }
+                    else { WebcamTabletop.Enable(); Ui.CloseAll(); } // close the menu so the player can place the board
+                }, ButtonKind.Secondary, "icon_play", height: 20 * S);
+                cameraLabel = cameraButton.GetComponentInChildren<TMP_Text>();
+            }
+
             UIFactory.Spacer(body, flexible: 1f);
 
             var row = UIFactory.Rect(body, "Exit");
@@ -57,6 +71,7 @@ namespace LucillesJourney.Gamification.UI
         {
             var chapter = JourneyCatalog.GetChapter(GameManager.Instance.CurrentChapterId);
             chapterLabel.text = chapter != null ? chapter.Title : "";
+            if (cameraLabel != null) cameraLabel.text = WebcamTabletop.IsActive ? "Leave AR (Camera)" : "Play in AR (Camera)";
         }
     }
 
@@ -240,7 +255,18 @@ namespace LucillesJourney.Gamification.UI
             UIFactory.VBox(scrollContent.gameObject, spacing: 3 * S, padding: 2 * S);
             UIFactory.FitHeight(scrollContent.gameObject);
 
-            foreach (var (action, keys) in Rows)
+            var rows = new System.Collections.Generic.List<(string action, string keys)>(Rows);
+            if (ARMode.WebcamSupported)
+            {
+                rows.Add(("Play in AR (camera)", "Main menu: Play in AR. In game: Pause menu > Play in AR (Camera), and the same button to leave. " +
+                    "Click to place the board, Scroll or + / - to resize, Z / X to rotate, M to move it, T to anchor it to the scene, C for the next camera, F to mirror, H to show or hide help"));
+            }
+            if (ARMode.Supported && Application.isMobilePlatform)
+            {
+                rows.Add(("Play in AR (phone)", "Main menu: Play in AR. Aim at a table and tap PLACE. Pinch to resize, twist with two fingers to rotate, MOVE to pick the board up again"));
+            }
+
+            foreach (var (action, keys) in rows)
             {
                 var row = UIFactory.Rect(scrollContent, "Row");
                 UIFactory.Size(row.gameObject, minHeight: 12 * S);

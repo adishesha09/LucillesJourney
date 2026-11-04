@@ -9,6 +9,8 @@ using UnityEngine.UI;
 using LucillesJourney.Core;
 using LucillesJourney.Gamification.UI;
 using LucillesJourney.Interaction;
+using LucillesJourney.Narrative;
+using LucillesJourney.UI;
 using LucillesJourney.World;
 
 namespace LucillesJourney.AR
@@ -20,7 +22,10 @@ namespace LucillesJourney.AR
     ///
     /// Click = place. Scroll = size. Z / X = rotate. M = pick the board up again. C = next camera. F = mirror.
     /// T = anchor to scene on/off: once placed, the board follows the picture as the camera moves (see WebcamMotionTracker).
-    /// (E and Space stay the game's Interact keys.)
+    /// H = show/hide this help. (E and Space stay the game's Interact keys.)
+    ///
+    /// Switched on from the main menu or the in-game pause menu (<see cref="Enable"/> / <see cref="Disable"/>).
+    /// On the ending screen there is no game board: the webcam simply becomes the backdrop behind the ending.
     ///
     /// The game keeps running exactly as before: its camera renders into a small crisp texture shown on the board,
     /// the same trick the real AR mode uses.
@@ -32,30 +37,48 @@ namespace LucillesJourney.AR
         private static readonly Vector2Int TextureSize = new Vector2Int(384, 216);
         private const float BaseBoardWidth = 1152f;   // canvas units (1920x1080 reference): 60% of the screen width
         private const float Border = 12f;
+        private const float MinScale = 0.3f, MaxScale = 2.5f;
 
         private Camera gameCamera;
         private RenderTexture texture;
-        private WebCamTexture webcam;
-        private WebCamDevice[] devices = new WebCamDevice[0];
-        private int deviceIndex;
-        private int failedStarts;
-        private float startedAt;
-        private bool mirrored = true;
+        private readonly WebcamFeed feed = new WebcamFeed();
+        private bool endingMode;
 
         private RectTransform canvasRect, boardRoot, boardInner;
         private RawImage background, boardImage;
         private AspectRatioFitter backgroundFit;
         private TextMeshProUGUI hint;
+        private GameObject hintStrip;
 
         private readonly WebcamMotionTracker tracker = new WebcamMotionTracker();
         private bool anchorToScene = true;
 
         private bool placed;
+        private bool showHelp;
+        private float helpUntil;
         private float scale = 1f;
         private float angle;
         private GameManager pauseOwner;
 
         public bool IsPlaced => placed;
+
+        /// <summary>True while the player has the laptop camera mode switched on.</summary>
+        public static bool IsActive => ARMode.WebcamRequested;
+
+        /// <summary>Switches the camera mode on from anywhere (the pause menu uses this). Starts at once in the current scene.</summary>
+        public static void Enable()
+        {
+            if (!ARMode.WebcamSupported) return;
+            ARMode.WebcamRequested = true;
+            if (FindFirstObjectByType<WebcamTabletop>() == null) new GameObject("WebcamTabletop").AddComponent<WebcamTabletop>();
+        }
+
+        /// <summary>Switches the camera mode off and puts the game back on the normal screen.</summary>
+        public static void Disable()
+        {
+            ARMode.WebcamRequested = false;
+            foreach (var mode in FindObjectsByType<WebcamTabletop>(FindObjectsSortMode.None)) Destroy(mode.gameObject);
+        }
 
         // ---------------------------------------------------------------------------------------------------------
         // Start-up: spawn in gameplay scenes only when the player chose "Play with Camera"
@@ -77,7 +100,19 @@ namespace LucillesJourney.AR
 
         private IEnumerator Start()
         {
-            // The game camera may appear a few frames into the scene; the menu scene never has one.
+            if (FindFirstObjectByType<MainMenuController>() != null) { Destroy(gameObject); yield break; }
+
+            // The ending scene has no game camera: there the webcam is just the backdrop.
+            if (FindFirstObjectByType<EndingUI>() != null)
+            {
+                endingMode = true;
+                Instance = this;
+                BuildUi();
+                yield return StartCamera();
+                yield break;
+            }
+
+            // The game camera may appear a few frames into the scene; other scenes never have one.
             CameraFollow2D follow = null;
             for (int i = 0; i < 120 && follow == null; i++)
             {
@@ -92,11 +127,16 @@ namespace LucillesJourney.AR
             BuildUi();
             InteractionDetector.ScreenToWorldOverride = ScreenToGameWorld;
             ApplyBoardTransform();
+            helpUntil = Time.unscaledTime + 10f;
+            yield return StartCamera();
+        }
 
+        private IEnumerator StartCamera()
+        {
+            feed.Restarted += tracker.Reset;
             if (Application.platform == RuntimePlatform.Android || Application.platform == RuntimePlatform.IPhonePlayer)
                 yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
-            devices = WebCamTexture.devices;
-            StartWebcam(FirstUsableDevice(), true);
+            feed.Begin(background);
         }
 
         private void SetUpGameView()
@@ -125,7 +165,7 @@ namespace LucillesJourney.AR
             canvasObject.transform.SetParent(transform, false);
             var canvas = canvasObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = -200;
+            canvas.sortingOrder = endingMode ? -99 : -200; // ending: above the menu backdrop (-100), below the ending's own canvas
             var scaler = canvasObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
@@ -142,6 +182,12 @@ namespace LucillesJourney.AR
             backgroundFit = bgObject.AddComponent<AspectRatioFitter>();
             backgroundFit.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
             backgroundFit.aspectRatio = 16f / 9f;
+
+            if (endingMode)
+            {
+                BuildHint();
+                return;
+            }
 
             // Board: dark frame (root) with the game picture inside.
             var rootObject = new GameObject("Board", typeof(RectTransform));
@@ -164,8 +210,45 @@ namespace LucillesJourney.AR
             boardImage.texture = texture;
             boardImage.raycastTarget = false;
 
-            hint = UIFactory.Text(canvasRect, "Hint", "", TextStyle.Label, PixelTheme.Cream, TextAlignmentOptions.Center);
-            UIFactory.Anchor(hint.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 24f), new Vector2(1800f, 70f));
+            BuildHint();
+        }
+
+        // The help line lives on its own canvas ABOVE the game's HUD (the chapter panel and buttons would cover it), at the
+        // bottom centre on a dark strip so it reads over any webcam picture. It hides itself during dialogue and menus.
+        private void BuildHint()
+        {
+            var canvasObject = new GameObject("WebcamHintCanvas");
+            canvasObject.transform.SetParent(transform, false);
+            var canvas = canvasObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 30;
+            var scaler = canvasObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            var stripObject = new GameObject("HintStrip", typeof(RectTransform));
+            stripObject.transform.SetParent(canvasObject.transform, false);
+            hintStrip = stripObject;
+            var strip = stripObject.AddComponent<Image>();
+            strip.color = new Color(0.10f, 0.13f, 0.14f, 0.78f);
+            strip.raycastTarget = false;
+            UIFactory.Anchor((RectTransform)stripObject.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 12f), new Vector2(1760f, 46f));
+
+            hint = UIFactory.Text((RectTransform)stripObject.transform, "Hint", "", TextStyle.Label, PixelTheme.Cream, TextAlignmentOptions.Center);
+            UIFactory.Stretch(hint.rectTransform);
+            hint.fontSize *= 0.6f;
+            hint.raycastTarget = false;
+            hintStrip.SetActive(false);
+        }
+
+        private void SetHint(string text)
+        {
+            if (hint == null) return;
+            hint.text = text;
+            bool show = !string.IsNullOrEmpty(text);
+            if (hintStrip.activeSelf != show) hintStrip.SetActive(show);
         }
 
         private void ApplyBoardTransform()
@@ -180,98 +263,26 @@ namespace LucillesJourney.AR
         }
 
         // ---------------------------------------------------------------------------------------------------------
-        // Webcam
-        // ---------------------------------------------------------------------------------------------------------
-
-        private void StartWebcam(int index, bool userChoice)
-        {
-            StopWebcam();
-            tracker.Reset();
-            if (devices.Length == 0)
-            {
-                Debug.LogWarning("Camera preview: no webcam found - using a plain background.");
-                background.texture = null;
-                return;
-            }
-            if (userChoice) failedStarts = 0;
-            deviceIndex = ((index % devices.Length) + devices.Length) % devices.Length;
-            webcam = CreateTexture(devices[deviceIndex]);
-            background.texture = webcam;
-            background.color = Color.white;
-            webcam.Play();
-            startedAt = Time.unscaledTime;
-        }
-
-        // Asks the camera which modes it really supports and takes the one closest to 1280x720. Requesting a fixed mode
-        // makes Windows fail with "Couldn't config the stream!" on cameras that do not offer exactly that.
-        private static WebCamTexture CreateTexture(WebCamDevice device)
-        {
-            var modes = device.availableResolutions;
-            if (modes != null && modes.Length > 0)
-            {
-                Resolution best = modes[0];
-                int bestDistance = int.MaxValue;
-                foreach (var mode in modes)
-                {
-                    int distance = Mathf.Abs(mode.width - 1280) + Mathf.Abs(mode.height - 720);
-                    if (distance < bestDistance) { bestDistance = distance; best = mode; }
-                }
-                int fps = best.refreshRate > 0 ? best.refreshRate : 30;
-                return new WebCamTexture(device.name, best.width, best.height, fps);
-            }
-            return new WebCamTexture(device.name); // let the system choose
-        }
-
-        // Infrared / depth cameras (the face-login sensor on many laptops) do not give a normal picture.
-        private static bool LooksLikeInfrared(string name) =>
-            name.IndexOf(" IR", StringComparison.OrdinalIgnoreCase) >= 0 ||
-            name.IndexOf("infrared", StringComparison.OrdinalIgnoreCase) >= 0 ||
-            name.IndexOf("depth", StringComparison.OrdinalIgnoreCase) >= 0;
-
-        private int FirstUsableDevice()
-        {
-            for (int i = 0; i < devices.Length; i++)
-                if (!LooksLikeInfrared(devices[i].name)) return i;
-            return 0;
-        }
-
-        private int NextUsableDevice(int from)
-        {
-            for (int step = 1; step <= devices.Length; step++)
-            {
-                int index = (from + step) % devices.Length;
-                if (!LooksLikeInfrared(devices[index].name)) return index;
-            }
-            return (from + 1) % Mathf.Max(1, devices.Length);
-        }
-
-        private void StopWebcam()
-        {
-            if (webcam == null) return;
-            if (webcam.isPlaying) webcam.Stop();
-            Destroy(webcam);
-            webcam = null;
-        }
-
-        private void UpdateWebcamView()
-        {
-            if (webcam == null || !webcam.isPlaying || webcam.width < 100) return; // width stays ~16 until the first frame
-            bool flippedY = webcam.videoVerticallyMirrored;
-            background.uvRect = new Rect(mirrored ? 1f : 0f, flippedY ? 1f : 0f, mirrored ? -1f : 1f, flippedY ? -1f : 1f);
-            background.rectTransform.localEulerAngles = new Vector3(0f, 0f, -webcam.videoRotationAngle);
-            bool sideways = webcam.videoRotationAngle == 90 || webcam.videoRotationAngle == 270;
-            backgroundFit.aspectRatio = sideways ? (float)webcam.height / webcam.width : (float)webcam.width / webcam.height;
-        }
-
-        // ---------------------------------------------------------------------------------------------------------
         // Per-frame input
         // ---------------------------------------------------------------------------------------------------------
 
         private void Update()
         {
+            var keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                if (keyboard.fKey.wasPressedThisFrame) feed.ToggleMirror();
+                if (keyboard.cKey.wasPressedThisFrame) feed.Next();
+            }
+            feed.Tick(backgroundFit);
+
+            if (endingMode)
+            {
+                SetHint(HintBlocked ? "" : "C: next camera   F: mirror");
+                return;
+            }
             if (gameCamera == null) return;
 
-            var keyboard = Keyboard.current;
             var mouse = Mouse.current;
             var pointer = Pointer.current;
             float dt = Time.unscaledDeltaTime; // the game is paused (timeScale 0) while placing
@@ -280,20 +291,28 @@ namespace LucillesJourney.AR
             {
                 if (keyboard.zKey.isPressed) angle += 90f * dt;
                 if (keyboard.xKey.isPressed) angle -= 90f * dt;
-                if (keyboard.fKey.wasPressedThisFrame) mirrored = !mirrored;
                 if (keyboard.tKey.wasPressedThisFrame) anchorToScene = !anchorToScene;
-                if (keyboard.cKey.wasPressedThisFrame) StartWebcam(NextUsableDevice(deviceIndex), true);
+                if (keyboard.hKey.wasPressedThisFrame) showHelp = !showHelp;
+                float grow = (keyboard.equalsKey.isPressed || keyboard.numpadPlusKey.isPressed ? 1f : 0f) -
+                             (keyboard.minusKey.isPressed || keyboard.numpadMinusKey.isPressed ? 1f : 0f);
+                if (grow != 0f) scale = Mathf.Clamp(scale * Mathf.Exp(grow * 0.9f * dt), MinScale, MaxScale);
                 if (placed && keyboard.mKey.wasPressedThisFrame) BeginMove();
             }
             if (mouse != null)
             {
                 float scroll = mouse.scroll.ReadValue().y;
-                if (Mathf.Abs(scroll) > 0.01f) scale = Mathf.Clamp(scale * (1f + scroll * 0.0006f), 0.3f, 1.6f);
+                if (Mathf.Abs(scroll) > 0.01f)
+                {
+                    // A wheel notch reads +-120, a laptop trackpad only a few units: give every scroll event a usable step.
+                    float step = Mathf.Sign(scroll) * Mathf.Clamp(Mathf.Abs(scroll), 20f, 120f);
+                    scale = Mathf.Clamp(scale * (1f + step * 0.0008f), MinScale, MaxScale);
+                }
             }
 
             if (!placed)
             {
-                if (pointer != null)
+                // Not while a menu (the pause menu, say) is open: a click there must not place the board.
+                if (pointer != null && !(JourneyUI.Instance != null && JourneyUI.Instance.IsAnyScreenOpen))
                 {
                     Vector2 screen = pointer.position.ReadValue();
                     if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screen, null, out var local))
@@ -307,31 +326,38 @@ namespace LucillesJourney.AR
             }
 
             ApplyBoardTransform();
-            UpdateWebcamView();
 
-            // A camera that never delivers a picture (wrong mode, in use elsewhere) is skipped in favour of the next one.
-            if (webcam != null && webcam.width < 100 && devices.Length > 1 && failedStarts < devices.Length - 1 &&
-                Time.unscaledTime - startedAt > 3f)
-            {
-                failedStarts++;
-                Debug.LogWarning("Camera preview: '" + devices[deviceIndex].name + "' gave no picture - trying the next camera.");
-                StartWebcam(NextUsableDevice(deviceIndex), false);
-            }
-
+            var webcam = feed.Texture;
             if (placed && anchorToScene) { if (webcam != null && webcam.didUpdateThisFrame) FollowScene(); }
             else tracker.Reset();
 
+            UpdateHint();
+        }
+
+        // Dialogue and menus have their own text; the camera hint stays out of their way.
+        private static bool HintBlocked =>
+            (NarrativePanelUI.Instance != null && NarrativePanelUI.Instance.IsShowing) ||
+            (JourneyUI.Instance != null && JourneyUI.Instance.IsAnyScreenOpen);
+
+        private void UpdateHint()
+        {
+            if (HintBlocked) { SetHint(""); return; }
+
             string anchor = "T: anchor to scene " + (anchorToScene ? "ON" : "OFF");
-            hint.text = placed
-                ? "M: move board   " + anchor + "   Scroll: size   Z / X: rotate   C: camera   F: mirror"
-                : "Click to place the board anywhere   Scroll: size   Z / X: rotate   C: camera   F: mirror";
+            if (!placed)
+                SetHint("Click to place the board   Scroll or + / -: size   Z / X: rotate   C: camera   F: mirror   " + anchor);
+            else if (showHelp || Time.unscaledTime < helpUntil)
+                SetHint("M: move board   " + anchor + "   Scroll or + / -: size   Z / X: rotate   C: camera   F: mirror   H: hide help");
+            else
+                SetHint("H: camera help");
         }
 
         // Moves the board with the picture: whatever the camera did between two frames, the board does too.
         private void FollowScene()
         {
+            var webcam = feed.Texture;
             if (webcam.videoRotationAngle == 90 || webcam.videoRotationAngle == 270) return; // desktop cameras are upright
-            if (!tracker.Step(webcam, mirrored, webcam.videoVerticallyMirrored, out float a, out float b, out Vector2 t)) return;
+            if (!tracker.Step(webcam, feed.Mirrored, webcam.videoVerticallyMirrored, out float a, out float b, out Vector2 t)) return;
 
             // The tracker works in pixels of its 160-wide frame; the webcam picture is shown at the background's size.
             float k = background.rectTransform.rect.width / WebcamMotionTracker.Width;
@@ -340,7 +366,7 @@ namespace LucillesJourney.AR
             Vector2 p = boardRoot.anchoredPosition / k;
             var q = new Vector2(a * p.x - b * p.y + t.x, b * p.x + a * p.y + t.y);
             boardRoot.anchoredPosition = q * k;
-            scale = Mathf.Clamp(scale * Mathf.Sqrt(a * a + b * b), 0.3f, 1.6f);
+            scale = Mathf.Clamp(scale * Mathf.Sqrt(a * a + b * b), MinScale, MaxScale);
             angle += Mathf.Atan2(b, a) * Mathf.Rad2Deg;
         }
 
@@ -348,6 +374,7 @@ namespace LucillesJourney.AR
         {
             if (placed) return;
             placed = true;
+            helpUntil = Time.unscaledTime + 6f;
             ReleasePause();
         }
 
@@ -395,10 +422,10 @@ namespace LucillesJourney.AR
             if (Instance == this) Instance = null;
             if (InteractionDetector.ScreenToWorldOverride == (Func<Vector2, Vector2?>)ScreenToGameWorld)
                 InteractionDetector.ScreenToWorldOverride = null;
-            CameraFollow2D.OverrideScreenHeight = 0;
-            if (gameCamera != null) gameCamera.targetTexture = null;
+            if (!endingMode) CameraFollow2D.OverrideScreenHeight = 0;
+            if (gameCamera != null) { gameCamera.targetTexture = null; gameCamera.ResetAspect(); }
             if (texture != null) { texture.Release(); Destroy(texture); }
-            StopWebcam();
+            feed.Stop();
             tracker.Dispose();
             ReleasePause();
         }
